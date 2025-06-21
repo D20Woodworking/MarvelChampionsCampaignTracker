@@ -86,7 +86,7 @@ MARVEL_CHAMPIONS_HEROES_RAW = [
 MARVEL_CHAMPIONS_HEROES = ["--- Select a Hero ---"] + sorted(MARVEL_CHAMPIONS_HEROES_RAW)
 
 # --- Constants for Data Persistence ---
-DEFAULT_DATA_FILE_NAME = "marvel_champions_campaign_data.json"
+DEFAULT_DATA_FILE_NAME = "marvel_champions_campaign_data.json" # Internal file format remains JSON for ease
 
 # --- Helper Functions ---
 def initialize_campaign_state():
@@ -197,15 +197,15 @@ def main():
             label="Download Campaign Data File",
             data=get_campaign_data_for_download(),
             file_name=DEFAULT_DATA_FILE_NAME,
-            mime="application/json", # Still using JSON under the hood, but user sees 'data file'
-            help="Download your current campaign data to your computer."
+            mime="application/json", # This is for browser internal use, not user-visible
+            help="Download your current campaign data to your computer in a file format that can be reloaded later."
         )
 
         # Upload Data Button
         uploaded_file = st.file_uploader(
             "Upload Campaign Data File",
-            type=["json"], # Specify that it expects a JSON file
-            help=f"Upload a previously saved '{DEFAULT_DATA_FILE_NAME}' or similar campaign data file."
+            type=["json"], # This is for filtering file types in the file dialog
+            help="Upload a previously saved campaign data file (e.g., a .json file)."
         )
         if uploaded_file is not None:
             load_campaign_data(uploaded_file) # Call load_campaign_data if a file is uploaded
@@ -257,7 +257,7 @@ def main():
         if 'players' in st.session_state and len(st.session_state.players) > 0:
              # Ensure num_heroes_input doesn't exceed the number of actual players
              # or max allowed (4), and defaults to 1 if no players
-             st.session_state.num_heroes_input = min(st.session_state.num_heroes_input, len(st.session_state.players), 4)
+             st.session_state.num_heroes_input = min(num_heroes_playing, len(st.session_state.players), 4) # Use num_heroes_playing for comparison
              if st.session_state.num_heroes_input == 0 and len(st.session_state.players) > 0:
                  st.session_state.num_heroes_input = 1 # Set to 1 if players exist but count is 0
         else:
@@ -266,7 +266,7 @@ def main():
 
         selected_heroes_choices = []
         # Dynamically create hero selection dropdowns (outside the form for immediate reactivity)
-        for i in range(num_heroes_playing):
+        for i in range(num_heroes_playing): # Use num_heroes_playing for the loop
             hero_choice = st.selectbox(
                 f"Hero {i+1} Used:",
                 options=MARVEL_CHAMPIONS_HEROES,
