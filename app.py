@@ -203,9 +203,7 @@ def main():
                 key="num_heroes_input"
             )
 
-            selected_heroes = []
-            hero_health_inputs = []
-
+            selected_heroes_choices = []
             # Dynamically create hero selection dropdowns
             for i in range(num_heroes_playing):
                 hero_choice = st.selectbox(
@@ -213,10 +211,7 @@ def main():
                     options=MARVEL_CHAMPIONS_HEROES,
                     key=f"hero_select_{i}"
                 )
-                selected_heroes.append(hero_choice)
-                if hero_choice == "--- Select a Hero ---":
-                    st.error(f"Please select Hero {i+1}.")
-                    break # Stop if a hero is not selected
+                selected_heroes_choices.append(hero_choice) # Store the selected hero for validation/processing later
 
             # Dynamically populate scenarios based on selected campaign
             current_campaign_scenarios = MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS.get(
@@ -229,9 +224,13 @@ def main():
             )
             outcome = st.radio("Outcome:", ("Win", "Loss"), horizontal=True, key="scenario_outcome")
 
-            # Conditional health input for winning scenarios
+            hero_health_inputs_for_submission = [] # This will store the final data for adding to scenarios_played
+
+            # Conditional health input for winning scenarios - now displayed immediately if outcome is 'Win'
             if outcome == "Win":
-                for i, hero_name in enumerate(selected_heroes):
+                st.markdown("---") # Separator for health inputs
+                st.subheader("Hero Health Remaining (for Win)")
+                for i, hero_name in enumerate(selected_heroes_choices):
                     if hero_name != "--- Select a Hero ---":
                         health = st.number_input(
                             f"Health Remaining for {hero_name}:",
@@ -239,15 +238,16 @@ def main():
                             value=0, # Default to 0, user can change
                             key=f"hero_health_{i}"
                         )
-                        hero_health_inputs.append({"hero": hero_name, "health_remaining": health})
+                        hero_health_inputs_for_submission.append({"hero": hero_name, "health_remaining": health})
                     else:
-                        hero_health_inputs.append({"hero": "N/A", "health_remaining": "N/A"}) # Handle unselected hero
-            else: # If outcome is Loss
-                for hero_name in selected_heroes:
+                        # If a hero is not selected, add a placeholder indicating so
+                        hero_health_inputs_for_submission.append({"hero": "N/A (Not Selected)", "health_remaining": "N/A"})
+            else: # If outcome is Loss, populate with N/A
+                for hero_name in selected_heroes_choices:
                     if hero_name != "--- Select a Hero ---":
-                        hero_health_inputs.append({"hero": hero_name, "health_remaining": "N/A (Loss)"})
+                        hero_health_inputs_for_submission.append({"hero": hero_name, "health_remaining": "N/A (Loss)"})
                     else:
-                         hero_health_inputs.append({"hero": "N/A", "health_remaining": "N/A"})
+                        hero_health_inputs_for_submission.append({"hero": "N/A (Not Selected)", "health_remaining": "N/A"})
 
 
             scenario_notes = st.text_area("Scenario Notes (e.g., challenges, hero performance):")
@@ -256,15 +256,16 @@ def main():
             submit_scenario_button = st.form_submit_button("Record Scenario Outcome")
 
             if submit_scenario_button:
+                # Validate selected scenario and heroes
                 if selected_scenario == "--- Select a Scenario ---":
                     st.error("Please select a scenario to record its outcome.")
-                elif any(h == "--- Select a Hero ---" for h in selected_heroes):
-                    st.error("Please select all heroes used.")
+                elif any(h == "--- Select a Hero ---" for h in selected_heroes_choices):
+                    st.error("Please select all heroes used for the scenario.")
                 else:
                     add_scenario_outcome(
                         st.session_state.selected_campaign,
                         selected_scenario,
-                        hero_health_inputs, # Pass the list of hero data
+                        hero_health_inputs_for_submission, # Pass the collected list of hero data
                         outcome,
                         scenario_notes,
                         scenario_date_played
