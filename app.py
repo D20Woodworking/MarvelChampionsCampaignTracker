@@ -1,74 +1,70 @@
-# app.py
 import streamlit as st
 import pandas as pd
 import datetime
-import json # Import the json module for saving/loading data
+import json
 
-# --- Constants and Initial Setup ---
-# Define specific campaigns and their 5 associated scenarios/villains
+# --- App Config and CSS ---
+st.set_page_config(
+    page_title="Marvel Champions Campaign Tracker",
+    page_icon="🛡️",
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
+
+st.markdown(
+    """
+    <style>
+    .main-title {
+        font-size:2.2rem;
+        font-weight:900;
+        color:#0072B1;
+        letter-spacing:0.02em;
+        margin-bottom:0.2em;
+        text-shadow:0 2px 6px #11223311;
+    }
+    .subtitle {
+        color:#e8431d;
+        font-size:1.08em;
+        letter-spacing:0.01em;
+        margin-bottom:2rem;
+    }
+    .stDataFrame {border-radius:10px; box-shadow:0 0 16px #0072B133;}
+    </style>
+    <h1 class='main-title'>🛡️ Marvel Champions Campaign Tracker</h1>
+    <p class='subtitle'>Track, save, and celebrate your Marvel Champions campaign adventures!</p>
+    """,
+    unsafe_allow_html=True
+)
+
+# --- Data Constants ---
 MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS = {
-    "--- Select a Campaign ---": [], # Default empty state
+    "--- Select a Campaign ---": [],
     "Rise of Red Skull": [
-        "Crossbones",
-        "Absorbing Man",
-        "Taskmaster",
-        "Zola",
-        "Red Skull"
+        "Crossbones", "Absorbing Man", "Taskmaster", "Zola", "Red Skull"
     ],
     "Galaxy's Most Wanted": [
-        "Drang",
-        "Collector (Museum)",
-        "Collector (Ship)",
-        "Nebula",
-        "Ronan"
+        "Drang", "Collector (Museum)", "Collector (Ship)", "Nebula", "Ronan"
     ],
     "Mad Titan's Shadow": [
-        "Ebony Maw",
-        "Tower Defense",
-        "Thanos",
-        "Hela",
-        "Loki"
+        "Ebony Maw", "Tower Defense", "Thanos", "Hela", "Loki"
     ],
     "Sinister Motives": [
-        "Sandman",
-        "Venom",
-        "Mysterio",
-        "Sinister Six",
-        "Venom Goblin"
+        "Sandman", "Venom", "Mysterio", "Sinister Six", "Venom Goblin"
     ],
     "Mutant Genesis": [
-        "Sabretooth",
-        "Project Wideawake",
-        "Master Mold",
-        "Mansion Attack",
-        "Magneto"
+        "Sabretooth", "Project Wideawake", "Master Mold", "Mansion Attack", "Magneto"
     ],
     "Next Evolution": [
-        "Morlock Siege",
-        "On the Run",
-        "Juggernaut",
-        "Mister Sinister",
-        "Stryfe"
+        "Morlock Siege", "On the Run", "Juggernaut", "Mister Sinister", "Stryfe"
     ],
     "Age of Apocalypse": [
-        "Unus",
-        "Four Horseman",
-        "Apocalypse",
-        "Dark Beast",
-        "En Sabah Nur"
+        "Unus", "Four Horseman", "Apocalypse", "Dark Beast", "En Sabah Nur"
     ],
     "Agents of S.H.I.E.L.D.": [
-        "Black Widow",
-        "Batroc",
-        "M.O.D.O.K.",
-        "Thunderbolts",
-        "Baron Zero"
+        "Black Widow", "Batroc", "M.O.D.O.K.", "Thunderbolts", "Baron Zero"
     ]
-    # Add more campaigns as needed
 }
 
-# Define a list of Marvel Champions heroes.
-# This list has been updated and alphabetized based on available online resources.
 MARVEL_CHAMPIONS_HEROES_RAW = [
     "Adam Warlock", "Angel", "Ant-Man", "Bishop", "Black Panther",
     "Black Widow", "Cable", "Captain America", "Captain Marvel", "Cloak & Dagger",
@@ -84,44 +80,49 @@ MARVEL_CHAMPIONS_HEROES_RAW = [
     "Venom (Flash Thompson)", "Vision", "War Machine", "Wasp", "Winter Soldier", "Wolverine", "X-23"
 ]
 MARVEL_CHAMPIONS_HEROES = ["--- Select a Hero ---"] + sorted(MARVEL_CHAMPIONS_HEROES_RAW)
-
-# --- Constants for Data Persistence ---
-# Internal file format remains JSON for ease of serialization, but users won't see "JSON" in the UI
-DEFAULT_DATA_FILE_NAME = "marvel_champions_campaign_data.json"
+DEFAULT_DATA_FILE_NAME = "marvel_champions_campaign_data.mchamp"
 
 # --- Helper Functions ---
 def initialize_campaign_state():
-    """Initializes the campaign state in session_state."""
-    if 'selected_campaign' not in st.session_state:
-        st.session_state.selected_campaign = "--- Select a Campaign ---"
-    if 'players' not in st.session_state:
-        st.session_state.players = []
-    if 'scenarios_played' not in st.session_state:
-        # A list of dictionaries to store scenario outcomes, including heroes played and their health
-        st.session_state.scenarios_played = []
-    if 'campaign_boons' not in st.session_state:
-        # Stores campaign-specific boons/notes as a dictionary of lists
-        st.session_state.campaign_boons = {}
-    if 'num_heroes_input' not in st.session_state: # Initialize the num_heroes_input state
-        st.session_state.num_heroes_input = 1 # Default to 1 hero
+    st.session_state.setdefault('selected_campaign', "--- Select a Campaign ---")
+    st.session_state.setdefault('players', [])
+    st.session_state.setdefault('scenarios_played', [])
+    st.session_state.setdefault('campaign_boons', {})
+    st.session_state.setdefault('num_heroes_input', 1)
 
+def get_campaign_data_for_download():
+    data_to_save = {
+        "players": st.session_state.players,
+        "scenarios_played": st.session_state.scenarios_played,
+        "campaign_boons": st.session_state.campaign_boons
+    }
+    return json.dumps(data_to_save, indent=4)
+
+def load_campaign_data(uploaded_file):
+    try:
+        data = json.loads(uploaded_file.read().decode("utf-8"))
+        st.session_state.players = data.get("players", [])
+        st.session_state.scenarios_played = data.get("scenarios_played", [])
+        st.session_state.campaign_boons = data.get("campaign_boons", {})
+        st.session_state.selected_campaign = list(MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS.keys())[0]
+        st.success("Campaign data loaded successfully! Reloading application...")
+        st.rerun()
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
 
 def add_scenario_outcome(campaign_name, scenario_name, heroes_played_data, outcome, notes, date_played):
-    """Adds a new scenario outcome to the campaign log."""
     st.session_state.scenarios_played.append({
         "campaign": campaign_name,
         "scenario": scenario_name,
         "heroes_played": heroes_played_data,
         "outcome": outcome,
         "notes": notes,
-        "date": date_played.strftime("%Y-%m-%d") # Format date for display
+        "date": date_played.strftime("%Y-%m-%d")
     })
     hero_names = ", ".join([h["hero"] for h in heroes_played_data if h["hero"] != "N/A (Not Selected)"])
     st.success(f"'{scenario_name}' played with '{hero_names}' recorded as {outcome} in {campaign_name}!")
 
-
 def add_campaign_note(campaign_name, note, date):
-    """Adds a campaign-specific note or boon."""
     if campaign_name not in st.session_state.campaign_boons:
         st.session_state.campaign_boons[campaign_name] = []
     st.session_state.campaign_boons[campaign_name].append({
@@ -130,274 +131,182 @@ def add_campaign_note(campaign_name, note, date):
     })
     st.success(f"Note added to {campaign_name} campaign log!")
 
-# --- Helper Functions for Data Persistence ---
-def get_campaign_data_for_download():
-    """Prepares the current session state data for download as a JSON string."""
-    data_to_save = {
-        "players": st.session_state.players,
-        "scenarios_played": st.session_state.scenarios_played,
-        "campaign_boons": st.session_state.campaign_boons
-    }
-    # Use indent for pretty-printing the JSON
-    return json.dumps(data_to_save, indent=4)
-
-def load_campaign_data(uploaded_file):
-    """Loads data from an uploaded file into the session state."""
-    try:
-        data = json.loads(uploaded_file.read().decode("utf-8"))
-
-        # Update session state with loaded data, providing defaults if keys are missing
-        st.session_state.players = data.get("players", [])
-        st.session_state.scenarios_played = data.get("scenarios_played", [])
-        st.session_state.campaign_boons = data.get("campaign_boons", {})
-        # Reset selected campaign after loading, or try to select a default/first one
-        st.session_state.selected_campaign = list(MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS.keys())[0]
-
-        st.success("Campaign data loaded successfully! Reloading application...")
-        # Use st.rerun() for stable rerun behavior
-        st.rerun()
-    except json.JSONDecodeError:
-        st.error("Error: The uploaded file is not a valid campaign data file. Please check the file format.")
-    except Exception as e:
-        st.error(f"An unexpected error occurred while loading data: {e}")
-
-
-# --- Main Streamlit Application ---
+# --- Main App Function ---
 def main():
-    st.set_page_config(
-        page_title="Marvel Champions Campaign Tracker",
-        layout="centered",
-        initial_sidebar_state="expanded"
-    )
-
-    st.title("🛡️ Marvel Champions Campaign Tracker")
-
     initialize_campaign_state()
 
-    # --- Sidebar for Player Management and Data Operations ---
+    # Sidebar
     with st.sidebar:
-        st.header("Player Management")
+        st.image(
+            "https://raw.githubusercontent.com/D20Woodworking/MarvelChampionsCampaignTracker/main/assets/mc-logo.png",
+            width=110,
+        )
+        st.header("👤 Player Management")
         new_player_name = st.text_input("Add Player Name:")
-        if st.button("Add Player"):
+        if st.button("Add Player", use_container_width=True):
             if new_player_name and new_player_name not in st.session_state.players:
                 st.session_state.players.append(new_player_name)
                 st.success(f"Player '{new_player_name}' added!")
             elif new_player_name:
                 st.warning("Player already exists or name is empty.")
 
-        st.write("Current Players:")
+        st.markdown("**Current Players:**")
         if st.session_state.players:
-            for player in st.session_state.players:
-                st.write(f"- {player}")
+            st.markdown("\n".join([f"- {p}" for p in st.session_state.players]))
         else:
             st.info("No players added yet.")
 
         st.markdown("---")
-        st.header("Save/Load Data")
-
-        # Save Data Button
+        st.header("💾 Save / Load Data")
         st.download_button(
-            label="Save Campaign Progress", # Changed label
+            label="💾 Save Campaign Progress",
             data=get_campaign_data_for_download(),
             file_name=DEFAULT_DATA_FILE_NAME,
-            mime="application/json", # This is for browser internal use, not user-visible
-            help="Download your current campaign data to your computer. You can upload this file later to continue your progress." # Updated help text
+            mime="application/json",
+            help="Download your current campaign data as a backup."
         )
-
-        # Upload Data Button
         uploaded_file = st.file_uploader(
-            "Load Campaign Progress", # Changed label
-            type=["json"], # This is for filtering file types in the file dialog. It's an internal type filter.
-            help=f"Upload a previously saved campaign data file (e.g., '{DEFAULT_DATA_FILE_NAME}')." # Updated help text
+            "",
+            type=["mchamp"],
+            label_visibility='collapsed',
+            help="Upload a previously saved .mchamp campaign file."
         )
-        if uploaded_file is not None:
-            load_campaign_data(uploaded_file) # Call load_campaign_data if a file is uploaded
-
+        st.caption("Accepted file type: .MCHAMP")
+        if uploaded_file:
+            load_campaign_data(uploaded_file)
         st.markdown("---")
-        if st.button("Reset All Data"):
-            # Clear all session state variables to restart the entire app
+        if st.button("Reset All Data", type="primary"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
-            st.rerun() # Use st.rerun() for stable rerun behavior
-            st.success("All campaign data has been reset.")
+            st.rerun()
 
-
-    # --- Main Content Area ---
-
-    # Campaign Selection
-    st.subheader("Select Campaign")
+    # Main Content
+    st.markdown("## 🎲 Select Your Campaign")
     st.session_state.selected_campaign = st.selectbox(
         "Choose a Campaign:",
         options=list(MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS.keys()),
-        index=list(MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS.keys()).index(st.session_state.selected_campaign)
+        index=list(MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS.keys()).index(st.session_state.selected_campaign),
     )
-
     is_campaign_selected = st.session_state.selected_campaign != "--- Select a Campaign ---"
     are_players_added = len(st.session_state.players) > 0
-
     if not is_campaign_selected or not are_players_added:
         if not is_campaign_selected:
             st.warning("Please select a campaign to begin tracking.")
         if not are_players_added:
-            st.warning("Please add at least one player in the sidebar.")
-    else:
-        st.write(f"**Tracking Campaign:** {st.session_state.selected_campaign}")
-        st.write(f"**Players:** {', '.join(st.session_state.players)}")
+            st.warning("Add at least one player in the sidebar.")
+        st.stop()
 
-        # --- Record New Scenario Outcome Section ---
-        st.subheader("Record New Scenario Outcome")
+    st.info(f"**Currently Tracking:** `{st.session_state.selected_campaign}`")
+    st.markdown(f"**Players:** {' | '.join(st.session_state.players)}")
+    st.markdown("---")
 
-        # Input for number of heroes playing (outside the form for immediate reactivity)
-        # Use the session_state.num_heroes_input directly for value
+    # Record New Scenario
+    with st.expander("➕ Record New Scenario Outcome", expanded=True):
+        st.subheader("Record Scenario Result")
         num_heroes_playing = st.number_input(
-            "Number of Heroes Playing:",
-            min_value=1,
-            max_value=4, # Typically 1-4 players in Marvel Champions
-            value=st.session_state.num_heroes_input, # Use session state for value
-            step=1,
-            key="num_heroes_input" # This automatically updates st.session_state.num_heroes_input
+            "How many heroes played?", min_value=1, max_value=4, value=st.session_state.num_heroes_input, step=1, key="num_heroes_input"
         )
-        
-        # Ensure num_heroes_input is within valid bounds after it's been updated by the widget
-        # This prevents invalid states if a user manually edits session_state or due to edge cases
-        st.session_state.num_heroes_input = max(1, min(num_heroes_playing, 4))
-        if 'players' in st.session_state and len(st.session_state.players) > 0:
-            st.session_state.num_heroes_input = min(st.session_state.num_heroes_input, len(st.session_state.players))
-
-
+        st.session_state.num_heroes_input = max(1, min(num_heroes_playing, len(st.session_state.players)))
         selected_heroes_choices = []
-        # Dynamically create hero selection dropdowns (outside the form for immediate reactivity)
-        for i in range(st.session_state.num_heroes_input): # Use the clamped session state value for the loop
-            hero_choice = st.selectbox(
-                f"Hero {i+1} Used:",
-                options=MARVEL_CHAMPIONS_HEROES,
-                key=f"hero_select_{i}"
-            )
-            selected_heroes_choices.append(hero_choice) # Store the selected hero for validation/processing later
-
-        # Outcome radio button (outside the form for immediate reactivity)
-        outcome = st.radio("Outcome:", ("Win", "Loss"), horizontal=True, key="scenario_outcome")
-
-        hero_health_inputs_for_submission = [] # This will store the final data for adding to scenarios_played
-
-        # Conditional health input for winning scenarios - now displayed immediately if outcome is 'Win'
+        cols = st.columns(st.session_state.num_heroes_input)
+        for i in range(st.session_state.num_heroes_input):
+            hero_choice = cols[i].selectbox(
+                f"Hero {i+1}", options=MARVEL_CHAMPIONS_HEROES, key=f"hero_select_{i}")
+            selected_heroes_choices.append(hero_choice)
+        outcome = st.radio("Outcome", ("Win", "Loss"), horizontal=True, key="scenario_outcome")
+        hero_health_inputs_for_submission = []
         if outcome == "Win":
-            st.markdown("---") # Separator for health inputs
-            st.subheader("Hero Health Remaining (for Win)")
+            st.markdown("**Hero Health Remaining (for Win):**")
+            cols_health = st.columns(st.session_state.num_heroes_input)
             for i, hero_name in enumerate(selected_heroes_choices):
                 if hero_name != "--- Select a Hero ---":
-                    health = st.number_input(
-                        f"Health Remaining for {hero_name}:",
-                        min_value=0,
-                        value=0, # Default to 0, user can change
-                        key=f"hero_health_{i}"
-                    )
+                    health = cols_health[i].number_input(
+                        f"{hero_name}", min_value=0, value=0, key=f"hero_health_{i}")
                     hero_health_inputs_for_submission.append({"hero": hero_name, "health_remaining": health})
                 else:
-                    # If a hero is not selected, add a placeholder indicating so
                     hero_health_inputs_for_submission.append({"hero": "N/A (Not Selected)", "health_remaining": "N/A"})
-        else: # If outcome is Loss, populate with N/A
+        else:
             for hero_name in selected_heroes_choices:
                 if hero_name != "--- Select a Hero ---":
                     hero_health_inputs_for_submission.append({"hero": hero_name, "health_remaining": "N/A (Loss)"})
                 else:
                     hero_health_inputs_for_submission.append({"hero": "N/A (Not Selected)", "health_remaining": "N/A"})
-
-        # The form now only contains the fields that need to be submitted together
         with st.form("scenario_form"):
-            # Dynamically populate scenarios based on selected campaign
-            current_campaign_scenarios = MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS.get(
-                st.session_state.selected_campaign, []
-            )
+            current_campaign_scenarios = MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS.get(st.session_state.selected_campaign, [])
             selected_scenario = st.selectbox(
                 "Scenario Played:",
                 options=["--- Select a Scenario ---"] + current_campaign_scenarios,
                 index=0,
-                key="scenario_select_in_form" # Needs a unique key if moved to form
+                key="scenario_select_in_form"
             )
-
-            scenario_notes = st.text_area("Scenario Notes (e.g., challenges, hero performance):")
-            scenario_date_played = st.date_input("Date Played (Scenario):", datetime.date.today(), key="scenario_date")
-
-            submit_scenario_button = st.form_submit_button("Record Scenario Outcome")
-
+            scenario_notes = st.text_area("Scenario Notes (Optional)")
+            scenario_date_played = st.date_input("Date Played:", datetime.date.today(), key="scenario_date")
+            submit_scenario_button = st.form_submit_button("Record Scenario Outcome", type="primary")
             if submit_scenario_button:
-                # Validate selected scenario and heroes (using selected_heroes_choices from outside the form)
                 if selected_scenario == "--- Select a Scenario ---":
-                    st.error("Please select a scenario to record its outcome.")
+                    st.error("Select a scenario to record its outcome.")
                 elif any(h == "--- Select a Hero ---" for h in selected_heroes_choices):
                     st.error("Please select all heroes used for the scenario.")
                 else:
                     add_scenario_outcome(
                         st.session_state.selected_campaign,
                         selected_scenario,
-                        hero_health_inputs_for_submission, # Pass the collected list of hero data
+                        hero_health_inputs_for_submission,
                         outcome,
                         scenario_notes,
                         scenario_date_played
                     )
 
-        # --- Campaign Log Section (Scenarios) ---
-        st.subheader("Scenario Log")
-        # Filter scenarios played by the currently selected campaign
-        current_campaign_scenarios_played = [
-            s for s in st.session_state.scenarios_played
-            if s["campaign"] == st.session_state.selected_campaign
-        ]
-
-        if current_campaign_scenarios_played:
-            # Flatten the 'heroes_played' list for better display in DataFrame
-            # Create a list of dictionaries where each dict represents a row for the DataFrame
-            display_data = []
-            for record in current_campaign_scenarios_played:
-                heroes_str = []
-                for hero_info in record["heroes_played"]:
-                    if hero_info["health_remaining"] != "N/A" and hero_info["health_remaining"] != "N/A (Loss)":
-                        heroes_str.append(f"{hero_info['hero']} ({hero_info['health_remaining']} HP)")
-                    else:
-                        heroes_str.append(hero_info['hero'])
-                display_data.append({
-                    "campaign": record["campaign"],
-                    "scenario": record["scenario"],
-                    "heroes_used": ", ".join(heroes_str), # Display combined hero and health info
-                    "outcome": record["outcome"],
-                    "notes": record["notes"],
-                    "date": record["date"]
-                })
-
-            df_scenarios = pd.DataFrame(display_data)
-            df_scenarios['date'] = pd.to_datetime(df_scenarios['date'])
-            df_scenarios = df_scenarios.sort_values(by='date', ascending=False).reset_index(drop=True)
-            st.dataframe(df_scenarios)
-        else:
-            st.info(f"No scenarios recorded yet for {st.session_state.selected_campaign}.")
-
-        # --- Campaign Boons & Notes Section ---
-        st.subheader("Campaign Boons & Notes")
-        with st.form("campaign_notes_form"):
-            new_campaign_note = st.text_area("Add Campaign Note/Boon (e.g., 'Permanent +1 HP for Captain America', 'Obligation: Betrayal added'):")
-            note_date = st.date_input("Date (Note):", datetime.date.today(), key="note_date_form") # Unique key
-            submit_note_button = st.form_submit_button("Add Campaign Note")
-
-            if submit_note_button:
-                if new_campaign_note:
-                    add_campaign_note(st.session_state.selected_campaign, new_campaign_note, note_date)
+    # Scenario Log
+    st.markdown("## 📜 Scenario Log")
+    current_campaign_scenarios_played = [
+        s for s in st.session_state.scenarios_played
+        if s["campaign"] == st.session_state.selected_campaign
+    ]
+    if current_campaign_scenarios_played:
+        display_data = []
+        for record in current_campaign_scenarios_played:
+            heroes_str = []
+            for hero_info in record["heroes_played"]:
+                if hero_info["health_remaining"] != "N/A" and hero_info["health_remaining"] != "N/A (Loss)":
+                    heroes_str.append(f"{hero_info['hero']} ({hero_info['health_remaining']} HP)")
                 else:
-                    st.warning("Please enter a note to add.")
+                    heroes_str.append(hero_info['hero'])
+            display_data.append({
+                "Scenario": record["scenario"],
+                "Heroes Used": ", ".join(heroes_str),
+                "Outcome": record["outcome"],
+                "Notes": record["notes"],
+                "Date": record["date"]
+            })
+        df_scenarios = pd.DataFrame(display_data)
+        df_scenarios['Date'] = pd.to_datetime(df_scenarios['Date'])
+        df_scenarios = df_scenarios.sort_values(by='Date', ascending=False).reset_index(drop=True)
+        st.dataframe(df_scenarios, use_container_width=True, hide_index=True)
+    else:
+        st.info(f"No scenarios recorded yet for {st.session_state.selected_campaign}.")
 
-        # Display campaign boons/notes for the current campaign
-        current_campaign_boons = st.session_state.campaign_boons.get(
-            st.session_state.selected_campaign, []
-        )
-        if current_campaign_boons:
-            df_boons = pd.DataFrame(current_campaign_boons)
-            df_boons['date'] = pd.to_datetime(df_boons['date'])
-            df_boons = df_boons.sort_values(by='date', ascending=False).reset_index(drop=True)
-            st.dataframe(df_boons)
-        else:
-            st.info(f"No special boons or notes recorded yet for {st.session_state.selected_campaign}.")
+    # Campaign Boons & Notes
+    st.markdown("## 📝 Campaign Boons & Notes")
+    with st.form("campaign_notes_form"):
+        new_campaign_note = st.text_area("Add Campaign Note/Boon (Optional)")
+        note_date = st.date_input("Date (Note):", datetime.date.today(), key="note_date_form")
+        submit_note_button = st.form_submit_button("Add Campaign Note", type="secondary")
+        if submit_note_button:
+            if new_campaign_note:
+                add_campaign_note(st.session_state.selected_campaign, new_campaign_note, note_date)
+            else:
+                st.warning("Please enter a note to add.")
+    current_campaign_boons = st.session_state.campaign_boons.get(
+        st.session_state.selected_campaign, []
+    )
+    if current_campaign_boons:
+        df_boons = pd.DataFrame(current_campaign_boons)
+        df_boons['date'] = pd.to_datetime(df_boons['date'])
+        df_boons = df_boons.sort_values(by='date', ascending=False).reset_index(drop=True)
+        st.dataframe(df_boons, use_container_width=True, hide_index=True)
+    else:
+        st.info(f"No special boons or notes recorded yet for {st.session_state.selected_campaign}.")
 
-
-# --- Run the app ---
 if __name__ == "__main__":
     main()
