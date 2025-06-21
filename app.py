@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 import datetime
+import json # Import the json module for saving/loading data
 
 # --- Constants and Initial Setup ---
 # Define specific campaigns and their 5 associated scenarios/villains
@@ -9,7 +10,7 @@ MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS = {
     "--- Select a Campaign ---": [], # Default empty state
     "Rise of Red Skull": [
         "Crossbones",
-        "Absorbing Man", # Corrected
+        "Absorbing Man",
         "Taskmaster",
         "Zola",
         "Red Skull"
@@ -23,45 +24,45 @@ MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS = {
     ],
     "Mad Titan's Shadow": [
         "Ebony Maw",
-        "Tower Defense", # Corrected
+        "Tower Defense",
         "Thanos",
         "Hela",
-        "Loki" # Corrected
+        "Loki"
     ],
     "Sinister Motives": [
         "Sandman",
         "Venom",
         "Mysterio",
-        "Sinister Six", # Corrected
+        "Sinister Six",
         "Venom Goblin"
     ],
     "Mutant Genesis": [
         "Sabretooth",
-        "Project Wideawake", # Corrected
+        "Project Wideawake",
         "Master Mold",
-        "Mansion Attack", # Corrected
-        "Magneto" # Corrected
+        "Mansion Attack",
+        "Magneto"
     ],
     "Next Evolution": [
-        "Morlock Siege", # Corrected
-        "On the Run", # Corrected
+        "Morlock Siege",
+        "On the Run",
         "Juggernaut",
         "Mister Sinister",
-        "Stryfe" # Corrected
+        "Stryfe"
     ],
     "Age of Apocalypse": [
-        "Unus", # Corrected
-        "Four Horseman", # Corrected
+        "Unus",
+        "Four Horseman",
         "Apocalypse",
         "Dark Beast",
-        "En Sabah Nur" # Corrected
+        "En Sabah Nur"
     ],
     "Agents of S.H.I.E.L.D.": [
-        "Black Widow", # Corrected
-        "Batroc", # Corrected
-        "M.O.D.O.K.", # Corrected
-        "Thunderbolts", # Corrected
-        "Baron Zero" # Corrected
+        "Black Widow",
+        "Batroc",
+        "M.O.D.O.K.",
+        "Thunderbolts",
+        "Baron Zero"
     ]
     # Add more campaigns as needed
 }
@@ -84,6 +85,8 @@ MARVEL_CHAMPIONS_HEROES_RAW = [
 ]
 MARVEL_CHAMPIONS_HEROES = ["--- Select a Hero ---"] + sorted(MARVEL_CHAMPIONS_HEROES_RAW)
 
+# --- Constants for Data Persistence ---
+DEFAULT_DATA_FILE_NAME = "marvel_champions_campaign_data.json"
 
 # --- Helper Functions ---
 def initialize_campaign_state():
@@ -93,30 +96,25 @@ def initialize_campaign_state():
     if 'players' not in st.session_state:
         st.session_state.players = []
     if 'scenarios_played' not in st.session_state:
-        # A list of dictionaries to store scenario outcomes
+        # A list of dictionaries to store scenario outcomes, including heroes played and their health
         st.session_state.scenarios_played = []
     if 'campaign_boons' not in st.session_state:
         # Stores campaign-specific boons/notes as a dictionary of lists
-        # e.g., {"Campaign Name": [{"date": "YYYY-MM-DD", "note": "..."}]}
         st.session_state.campaign_boons = {}
 
 
 def add_scenario_outcome(campaign_name, scenario_name, heroes_played_data, outcome, notes, date_played):
-    """Adds a new scenario outcome to the campaign log.
-    heroes_played_data is a list of dictionaries, e.g.,
-    [{"hero": "Captain America", "health_remaining": 5}, {"hero": "Iron Man", "health_remaining": 10}]
-    """
+    """Adds a new scenario outcome to the campaign log."""
     st.session_state.scenarios_played.append({
         "campaign": campaign_name,
         "scenario": scenario_name,
-        "heroes_played": heroes_played_data, # Now a list of hero dicts
+        "heroes_played": heroes_played_data,
         "outcome": outcome,
         "notes": notes,
         "date": date_played.strftime("%Y-%m-%d") # Format date for display
     })
-    hero_names = ", ".join([h["hero"] for h in heroes_played_data])
+    hero_names = ", ".join([h["hero"] for h in heroes_played_data if h["hero"] != "N/A (Not Selected)"])
     st.success(f"'{scenario_name}' played with '{hero_names}' recorded as {outcome} in {campaign_name}!")
-    # Removed st.experimental_rerun() as form submission triggers a rerun already
 
 
 def add_campaign_note(campaign_name, note, date):
@@ -128,7 +126,37 @@ def add_campaign_note(campaign_name, note, date):
         "note": note
     })
     st.success(f"Note added to {campaign_name} campaign log!")
-    # Removed st.experimental_rerun() as form submission triggers a rerun already
+
+# --- Helper Functions for Data Persistence ---
+def get_campaign_data_for_download():
+    """Prepares the current session state data for download as a JSON string."""
+    data_to_save = {
+        "players": st.session_state.players,
+        "scenarios_played": st.session_state.scenarios_played,
+        "campaign_boons": st.session_state.campaign_boons
+    }
+    # Use indent for pretty-printing the JSON
+    return json.dumps(data_to_save, indent=4)
+
+def load_campaign_data(uploaded_file):
+    """Loads data from an uploaded file into the session state."""
+    try:
+        data = json.loads(uploaded_file.read().decode("utf-8"))
+
+        # Update session state with loaded data, providing defaults if keys are missing
+        st.session_state.players = data.get("players", [])
+        st.session_state.scenarios_played = data.get("scenarios_played", [])
+        st.session_state.campaign_boons = data.get("campaign_boons", {})
+        # Reset selected campaign after loading, or try to select a default/first one
+        st.session_state.selected_campaign = list(MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS.keys())[0]
+
+        st.success("Campaign data loaded successfully! Reloading application...")
+        # st.experimental_rerun() is needed here to refresh all widgets with the new session state data
+        st.experimental_rerun()
+    except json.JSONDecodeError:
+        st.error("Error: The uploaded file is not a valid campaign data file. Please check the file format.")
+    except Exception as e:
+        st.error(f"An unexpected error occurred while loading data: {e}")
 
 
 # --- Main Streamlit Application ---
@@ -143,7 +171,7 @@ def main():
 
     initialize_campaign_state()
 
-    # --- Sidebar for Player Setup and Reset ---
+    # --- Sidebar for Player Management and Data Operations ---
     with st.sidebar:
         st.header("Player Management")
         new_player_name = st.text_input("Add Player Name:")
@@ -160,6 +188,27 @@ def main():
                 st.write(f"- {player}")
         else:
             st.info("No players added yet.")
+
+        st.markdown("---")
+        st.header("Save/Load Data")
+
+        # Save Data Button
+        st.download_button(
+            label="Download Campaign Data File",
+            data=get_campaign_data_for_download(),
+            file_name=DEFAULT_DATA_FILE_NAME,
+            mime="application/json", # Still using JSON under the hood, but user sees 'data file'
+            help="Download your current campaign data to your computer."
+        )
+
+        # Upload Data Button
+        uploaded_file = st.file_uploader(
+            "Upload Campaign Data File",
+            type=["json"], # Specify that it expects a JSON file
+            help=f"Upload a previously saved '{DEFAULT_DATA_FILE_NAME}' or similar campaign data file."
+        )
+        if uploaded_file is not None:
+            load_campaign_data(uploaded_file) # Call load_campaign_data if a file is uploaded
 
         st.markdown("---")
         if st.button("Reset All Data"):
@@ -200,10 +249,20 @@ def main():
             "Number of Heroes Playing:",
             min_value=1,
             max_value=4, # Typically 1-4 players in Marvel Champions
-            value=1 if len(st.session_state.players) == 0 else min(len(st.session_state.players), 1),
+            value=1, # Default to 1
             step=1,
             key="num_heroes_input"
         )
+        # Ensure the value is clamped to a sensible default if players are not yet defined
+        if 'players' in st.session_state and len(st.session_state.players) > 0:
+             # Ensure num_heroes_input doesn't exceed the number of actual players
+             # or max allowed (4), and defaults to 1 if no players
+             st.session_state.num_heroes_input = min(st.session_state.num_heroes_input, len(st.session_state.players), 4)
+             if st.session_state.num_heroes_input == 0 and len(st.session_state.players) > 0:
+                 st.session_state.num_heroes_input = 1 # Set to 1 if players exist but count is 0
+        else:
+             st.session_state.num_heroes_input = 1 # Default to 1 if no players
+
 
         selected_heroes_choices = []
         # Dynamically create hero selection dropdowns (outside the form for immediate reactivity)
