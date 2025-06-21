@@ -9,10 +9,10 @@ MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS = {
     "--- Select a Campaign ---": [], # Default empty state
     "Rise of Red Skull": [
         "Crossbones",
+        "Absorbing Man", # Corrected
         "Taskmaster",
         "Zola",
-        "Red Skull",
-        "Ultron (from RoRS)"
+        "Red Skull"
     ],
     "Galaxy's Most Wanted": [
         "Drang",
@@ -23,45 +23,45 @@ MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS = {
     ],
     "Mad Titan's Shadow": [
         "Ebony Maw",
-        "Corvus Glaive",
-        "Proxima Midnight",
+        "Tower Defense", # Corrected
         "Thanos",
-        "Hela" # Assuming Hela is the 5th for MTS
+        "Hela",
+        "Loki" # Corrected
     ],
     "Sinister Motives": [
         "Sandman",
         "Venom",
         "Mysterio",
-        "Venom Goblin",
-        "Iron Spider (from SM)" # Assuming a placeholder or key encounter
+        "Sinister Six", # Corrected
+        "Venom Goblin"
     ],
     "Mutant Genesis": [
         "Sabretooth",
-        "Brotherhood of Mutants (Blob, Pyro, Avalanche)",
-        "Magneto (Mystique)",
-        "Sentinel Base Assault (Master Mold)",
-        "Juggernaut" # Assuming a placeholder or key encounter
+        "Project Wideawake", # Corrected
+        "Master Mold",
+        "Mansion Attack", # Corrected
+        "Magneto" # Corrected
     ],
     "Next Evolution": [
-        "Dominus",
-        "Mojo",
-        "Spiral",
-        "Shadow King",
-        "Proteus" # Assuming a placeholder or key encounter
+        "Morlock Siege", # Corrected
+        "On the Run", # Corrected
+        "Juggernaut",
+        "Mister Sinister",
+        "Stryfe" # Corrected
     ],
     "Age of Apocalypse": [
-        "Mr. Sinister",
-        "Apocalypse (Early)",
+        "Unus", # Corrected
+        "Four Horseman", # Corrected
+        "Apocalypse",
         "Dark Beast",
-        "Holocaust",
-        "Apocalypse (Final)"
+        "En Sabah Nur" # Corrected
     ],
     "Agents of S.H.I.E.L.D.": [
-        "Gabe Jones",
-        "Agent Brand",
-        "Nick Fury",
-        "Maria Hill",
-        "Phil Coulson" # Assuming 5 specific Agents for the campaign feel
+        "Black Widow", # Corrected
+        "Batroc", # Corrected
+        "M.O.D.O.K.", # Corrected
+        "Thunderbolts", # Corrected
+        "Baron Zero" # Corrected
     ]
     # Add more campaigns as needed
 }
