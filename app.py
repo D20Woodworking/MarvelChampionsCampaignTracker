@@ -152,8 +152,8 @@ def load_campaign_data(uploaded_file):
         st.session_state.selected_campaign = list(MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS.keys())[0]
 
         st.success("Campaign data loaded successfully! Reloading application...")
-        # st.experimental_rerun() is needed here to refresh all widgets with the new session state data
-        st.experimental_rerun()
+        # Use st.rerun() for stable rerun behavior
+        st.rerun()
     except json.JSONDecodeError:
         st.error("Error: The uploaded file is not a valid campaign data file. Please check the file format.")
     except Exception as e:
@@ -205,7 +205,7 @@ def main():
         # Upload Data Button
         uploaded_file = st.file_uploader(
             "Load Campaign Progress", # Changed label
-            type=["json"], # This is for filtering file types in the file dialog (still internal .json)
+            type=["json"], # This is for filtering file types in the file dialog. It's an internal type filter.
             help=f"Upload a previously saved campaign data file (e.g., '{DEFAULT_DATA_FILE_NAME}')." # Updated help text
         )
         if uploaded_file is not None:
@@ -216,7 +216,7 @@ def main():
             # Clear all session state variables to restart the entire app
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
-            st.experimental_rerun() # Rerun to show the initial setup state
+            st.rerun() # Use st.rerun() for stable rerun behavior
             st.success("All campaign data has been reset.")
 
 
