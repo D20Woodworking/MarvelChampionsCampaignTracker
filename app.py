@@ -66,9 +66,9 @@ MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS = {
     # Add more campaigns as needed
 }
 
-# Define a list of Marvel Champions heroes (placeholder - expand as needed)
-MARVEL_CHAMPIONS_HEROES = [
-    "--- Select a Hero ---",
+# Define a list of Marvel Champions heroes.
+# The list is sorted alphabetically after removing the initial placeholder.
+MARVEL_CHAMPIONS_HEROES_RAW = [
     "Captain America", "Iron Man", "Spider-Man (Peter Parker)", "Black Panther",
     "Captain Marvel", "She-Hulk", "Thor", "Doctor Strange", "Ant-Man", "Wasp",
     "Quicksilver", "Scarlet Witch", "Star-Lord", "Gamora", "Drax", "Groot",
@@ -79,8 +79,10 @@ MARVEL_CHAMPIONS_HEROES = [
     "Valkyrie", "Dazzler", "Shadowcat", "Mister Sinister", "Jean Grey", "Iceman",
     "Bishop", "Hawkeye", "Ms. Marvel", "Hulk", "Black Widow", "Ronin",
     "Goliath", "Spider-Ham", "Doctor Voodoo", "Cloak & Dagger", "Spider-Man (Miles Morales)",
-    "Ghost-Spider", "Silver Surfer", "Kitty Pryde" # Added some more for a decent list
+    "Ghost-Spider", "Silver Surfer"
 ]
+MARVEL_CHAMPIONS_HEROES = ["--- Select a Hero ---"] + sorted(MARVEL_CHAMPIONS_HEROES_RAW)
+
 
 # --- Helper Functions ---
 def initialize_campaign_state():
@@ -92,6 +94,11 @@ def initialize_campaign_state():
     if 'scenarios_played' not in st.session_state:
         # A list of dictionaries to store scenario outcomes
         st.session_state.scenarios_played = []
+    if 'campaign_boons' not in st.session_state:
+        # Stores campaign-specific boons/notes as a dictionary of lists
+        # e.g., {"Campaign Name": [{"date": "YYYY-MM-DD", "note": "..."}]}
+        st.session_state.campaign_boons = {}
+
 
 def add_scenario_outcome(campaign_name, scenario_name, hero_used, outcome, notes, date_played):
     """Adds a new scenario outcome to the campaign log."""
@@ -104,6 +111,17 @@ def add_scenario_outcome(campaign_name, scenario_name, hero_used, outcome, notes
         "date": date_played.strftime("%Y-%m-%d") # Format date for display
     })
     st.success(f"'{scenario_name}' played with '{hero_used}' recorded as {outcome} in {campaign_name}!")
+
+def add_campaign_note(campaign_name, note, date):
+    """Adds a campaign-specific note or boon."""
+    if campaign_name not in st.session_state.campaign_boons:
+        st.session_state.campaign_boons[campaign_name] = []
+    st.session_state.campaign_boons[campaign_name].append({
+        "date": date.strftime("%Y-%m-%d"),
+        "note": note
+    })
+    st.success(f"Note added to {campaign_name} campaign log!")
+
 
 # --- Main Streamlit Application ---
 def main():
@@ -166,6 +184,7 @@ def main():
         st.write(f"**Tracking Campaign:** {st.session_state.selected_campaign}")
         st.write(f"**Players:** {', '.join(st.session_state.players)}")
 
+        # --- Record New Scenario Outcome Section ---
         st.subheader("Record New Scenario Outcome")
         with st.form("scenario_form"):
             selected_hero = st.selectbox(
@@ -184,12 +203,12 @@ def main():
                 index=0
             )
             outcome = st.radio("Outcome:", ("Win", "Loss"), horizontal=True)
-            notes = st.text_area("Notes (e.g., specific challenges, campaign choices):")
-            date_played = st.date_input("Date Played:", datetime.date.today())
+            scenario_notes = st.text_area("Scenario Notes (e.g., challenges, hero performance):")
+            scenario_date_played = st.date_input("Date Played (Scenario):", datetime.date.today(), key="scenario_date")
 
-            submit_button = st.form_submit_button("Record Scenario Outcome")
+            submit_scenario_button = st.form_submit_button("Record Scenario Outcome")
 
-            if submit_button:
+            if submit_scenario_button:
                 if selected_scenario == "--- Select a Scenario ---":
                     st.error("Please select a scenario to record its outcome.")
                 elif selected_hero == "--- Select a Hero ---":
@@ -200,18 +219,51 @@ def main():
                         selected_scenario,
                         selected_hero,
                         outcome,
-                        notes,
-                        date_played
+                        scenario_notes,
+                        scenario_date_played
                     )
 
-        st.subheader("Campaign Log")
-        if st.session_state.scenarios_played:
-            df = pd.DataFrame(st.session_state.scenarios_played)
-            df['date'] = pd.to_datetime(df['date'])
-            df = df.sort_values(by='date', ascending=False).reset_index(drop=True)
-            st.dataframe(df) # Using st.dataframe for more interactive table
+        # --- Campaign Log Section (Scenarios) ---
+        st.subheader("Scenario Log")
+        # Filter scenarios played by the currently selected campaign
+        current_campaign_scenarios_played = [
+            s for s in st.session_state.scenarios_played
+            if s["campaign"] == st.session_state.selected_campaign
+        ]
+
+        if current_campaign_scenarios_played:
+            df_scenarios = pd.DataFrame(current_campaign_scenarios_played)
+            df_scenarios['date'] = pd.to_datetime(df_scenarios['date'])
+            df_scenarios = df_scenarios.sort_values(by='date', ascending=False).reset_index(drop=True)
+            st.dataframe(df_scenarios)
         else:
-            st.info("No scenarios recorded yet for any campaign.")
+            st.info(f"No scenarios recorded yet for {st.session_state.selected_campaign}.")
+
+        # --- Campaign Boons & Notes Section ---
+        st.subheader("Campaign Boons & Notes")
+        with st.form("campaign_notes_form"):
+            new_campaign_note = st.text_area("Add Campaign Note/Boon (e.g., 'Permanent +1 HP for Captain America', 'Obligation: Betrayal added'):")
+            note_date = st.date_input("Date (Note):", datetime.date.today(), key="note_date")
+            submit_note_button = st.form_submit_button("Add Campaign Note")
+
+            if submit_note_button:
+                if new_campaign_note:
+                    add_campaign_note(st.session_state.selected_campaign, new_campaign_note, note_date)
+                else:
+                    st.warning("Please enter a note to add.")
+
+        # Display campaign boons/notes for the current campaign
+        current_campaign_boons = st.session_state.campaign_boons.get(
+            st.session_state.selected_campaign, []
+        )
+        if current_campaign_boons:
+            df_boons = pd.DataFrame(current_campaign_boons)
+            df_boons['date'] = pd.to_datetime(df_boons['date'])
+            df_boons = df_boons.sort_values(by='date', ascending=False).reset_index(drop=True)
+            st.dataframe(df_boons)
+        else:
+            st.info(f"No special boons or notes recorded yet for {st.session_state.selected_campaign}.")
+
 
 # --- Run the app ---
 if __name__ == "__main__":
