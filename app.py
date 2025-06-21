@@ -102,6 +102,8 @@ def initialize_campaign_state():
     if 'campaign_boons' not in st.session_state:
         # Stores campaign-specific boons/notes as a dictionary of lists
         st.session_state.campaign_boons = {}
+    if 'num_heroes_input' not in st.session_state: # Initialize the num_heroes_input state
+        st.session_state.num_heroes_input = 1 # Default to 1 hero
 
 
 def add_scenario_outcome(campaign_name, scenario_name, heroes_played_data, outcome, notes, date_played):
@@ -245,28 +247,27 @@ def main():
         # --- Record New Scenario Outcome Section ---
         st.subheader("Record New Scenario Outcome")
 
-        # Determine initial value for num_heroes_input based on players
-        initial_num_heroes_value = 1
-        if 'players' in st.session_state and len(st.session_state.players) > 0:
-            initial_num_heroes_value = min(1, len(st.session_state.players)) # Default to 1, limited by actual players
-        
         # Input for number of heroes playing (outside the form for immediate reactivity)
+        # Use the session_state.num_heroes_input directly for value
         num_heroes_playing = st.number_input(
             "Number of Heroes Playing:",
             min_value=1,
             max_value=4, # Typically 1-4 players in Marvel Champions
-            value=initial_num_heroes_value, # Set initial value here
+            value=st.session_state.num_heroes_input, # Use session state for value
             step=1,
-            key="num_heroes_input"
+            key="num_heroes_input" # This automatically updates st.session_state.num_heroes_input
         )
-        # No need to set st.session_state.num_heroes_input directly here,
-        # as st.number_input manages its own state and returns the current value.
+        
+        # Ensure num_heroes_input is within valid bounds after it's been updated by the widget
+        # This prevents invalid states if a user manually edits session_state or due to edge cases
+        st.session_state.num_heroes_input = max(1, min(num_heroes_playing, 4))
+        if 'players' in st.session_state and len(st.session_state.players) > 0:
+            st.session_state.num_heroes_input = min(st.session_state.num_heroes_input, len(st.session_state.players))
 
 
         selected_heroes_choices = []
         # Dynamically create hero selection dropdowns (outside the form for immediate reactivity)
-        # Ensure that the loop uses the live value of num_heroes_playing
-        for i in range(num_heroes_playing):
+        for i in range(st.session_state.num_heroes_input): # Use the clamped session state value for the loop
             hero_choice = st.selectbox(
                 f"Hero {i+1} Used:",
                 options=MARVEL_CHAMPIONS_HEROES,
