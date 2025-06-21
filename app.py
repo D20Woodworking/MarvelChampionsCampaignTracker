@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 import json # Import the json module for saving/loading data
+import uuid # Import uuid for generating unique IDs
 
 # --- Constants and Initial Setup ---
 # Define specific campaigns and their 5 associated scenarios/villains
@@ -124,6 +125,7 @@ def add_scenario_outcome(
 ):
     """Adds a new scenario outcome to the campaign log."""
     st.session_state.scenarios_played.append({
+        "id": str(uuid.uuid4()), # Assign a unique ID for deletion
         "campaign": campaign_name,
         "scenario": scenario_name,
         "heroes_played": heroes_played_data, # List of dicts with hero, aspect, health
@@ -147,6 +149,7 @@ def add_campaign_note(campaign_name, note_type, note_content, date):
     if campaign_name not in st.session_state.campaign_boons:
         st.session_state.campaign_boons[campaign_name] = []
     st.session_state.campaign_boons[campaign_name].append({
+        "id": str(uuid.uuid4()), # Assign a unique ID for deletion
         "date": date.strftime("%Y-%m-%d"),
         "type": note_type, # e.g., "Boon", "Choice", "Note"
         "content": note_content
@@ -168,6 +171,15 @@ def load_campaign_data(uploaded_file):
     """Loads data from an uploaded file into the session state."""
     try:
         data = json.loads(uploaded_file.read().decode("utf-8"))
+
+        # Initialize unique IDs for older entries if they don't have them
+        for scenario in data.get("scenarios_played", []):
+            if "id" not in scenario:
+                scenario["id"] = str(uuid.uuid4())
+        for campaign_notes in data.get("campaign_boons", {}).values():
+            for note in campaign_notes:
+                if "id" not in note:
+                    note["id"] = str(uuid.uuid4())
 
         # Update session state with loaded data, providing defaults if keys are missing
         st.session_state.players = data.get("players", [])
@@ -419,14 +431,15 @@ def main():
             st.subheader("Scenario Log 📜")
             st.write(f"All recorded scenarios for **{st.session_state.selected_campaign}**.")
 
-            # Filter scenarios played by the currently selected campaign
             current_campaign_scenarios_played = [
                 s for s in st.session_state.scenarios_played
                 if s["campaign"] == st.session_state.selected_campaign
             ]
 
             if current_campaign_scenarios_played:
+                # Prepare data for display and deletion selection
                 display_data = []
+                scenario_options_for_deletion = ["--- Select Scenario to Delete ---"]
                 for record in current_campaign_scenarios_played:
                     heroes_str = []
                     for hero_info in record["heroes_played"]:
@@ -439,6 +452,13 @@ def main():
                         aspect_display = f" ({hero_info['aspect']})" if hero_info["aspect"] != "N/A" else ""
                         
                         heroes_str.append(f"{hero_info['hero']}{aspect_display}{health_display}")
+                    
+                    # Create a display string for deletion selectbox
+                    scenario_display_str = (
+                        f"{record['date']} - {record['scenario']} ({record['difficulty']}) "
+                        f"with {', '.join(heroes_str)} - {record['outcome']}"
+                    )
+                    scenario_options_for_deletion.append({"id": record['id'], "display": scenario_display_str})
 
                     display_data.append({
                         "Campaign": record["campaign"],
@@ -458,6 +478,35 @@ def main():
                 df_scenarios['Date Played'] = pd.to_datetime(df_scenarios['Date Played'])
                 df_scenarios = df_scenarios.sort_values(by='Date Played', ascending=False).reset_index(drop=True)
                 st.dataframe(df_scenarios, use_container_width=True)
+
+                # Deletion UI for Scenarios
+                st.markdown("---")
+                st.write("**:red[Delete a Scenario Entry:]**")
+                
+                selected_scenario_to_delete_display = st.selectbox(
+                    "Select a scenario to delete:",
+                    options=[opt["display"] if isinstance(opt, dict) else opt for opt in scenario_options_for_deletion],
+                    key="delete_scenario_select"
+                )
+                
+                # Find the ID of the selected scenario
+                selected_scenario_id_to_delete = None
+                for opt in scenario_options_for_deletion:
+                    if isinstance(opt, dict) and opt["display"] == selected_scenario_to_delete_display:
+                        selected_scenario_id_to_delete = opt["id"]
+                        break
+
+                if st.button("🗑️ Delete Selected Scenario", key="delete_scenario_button"):
+                    if selected_scenario_id_to_delete:
+                        st.session_state.scenarios_played = [
+                            s for s in st.session_state.scenarios_played
+                            if s.get("id") != selected_scenario_id_to_delete
+                        ]
+                        st.success("Scenario entry deleted!")
+                        st.rerun()
+                    else:
+                        st.warning("Please select a scenario to delete.")
+
             else:
                 st.info(f"No scenarios recorded yet for **{st.session_state.selected_campaign}**. Time to play!")
 
@@ -467,7 +516,6 @@ def main():
             st.subheader("Campaign Boons & Narrative 📝")
             st.write(f"Important ongoing effects or narrative notes for **{st.session_state.selected_campaign}**.")
             
-            # Allow adding different types of notes
             note_type_choice = st.radio("Type of Note:", ("Boon", "Narrative Choice", "General Note"), horizontal=True, key="note_type_radio")
             
             with st.form("campaign_notes_form"):
@@ -490,6 +538,42 @@ def main():
                 df_boons['Date Added'] = pd.to_datetime(df_boons['Date Added'])
                 df_boons = df_boons.sort_values(by='Date Added', ascending=False).reset_index(drop=True)
                 st.dataframe(df_boons, use_container_width=True)
+
+                # Deletion UI for Boons/Notes
+                st.markdown("---")
+                st.write("**:red[Delete a Note/Boon Entry:]**")
+
+                boon_options_for_deletion = ["--- Select Note/Boon to Delete ---"]
+                for note in current_campaign_boons:
+                    boon_display_str = (
+                        f"{note['date']} - {note['type']}: "
+                        f"{note['content'][:50]}..." if len(note['content']) > 50 else note['content']
+                    )
+                    boon_options_for_deletion.append({"id": note['id'], "display": boon_display_str})
+                
+                selected_boon_to_delete_display = st.selectbox(
+                    "Select a note/boon to delete:",
+                    options=[opt["display"] if isinstance(opt, dict) else opt for opt in boon_options_for_deletion],
+                    key="delete_boon_select"
+                )
+
+                selected_boon_id_to_delete = None
+                for opt in boon_options_for_deletion:
+                    if isinstance(opt, dict) and opt["display"] == selected_boon_to_delete_display:
+                        selected_boon_id_to_delete = opt["id"]
+                        break
+
+                if st.button("🗑️ Delete Selected Note/Boon", key="delete_boon_button"):
+                    if selected_boon_id_to_delete:
+                        st.session_state.campaign_boons[st.session_state.selected_campaign] = [
+                            n for n in st.session_state.campaign_boons[st.session_state.selected_campaign]
+                            if n.get("id") != selected_boon_id_to_delete
+                        ]
+                        st.success("Note/Boon entry deleted!")
+                        st.rerun()
+                    else:
+                        st.warning("Please select a note/boon to delete.")
+
             else:
                 st.info(f"No special boons or notes recorded yet for **{st.session_state.selected_campaign}**.")
 
