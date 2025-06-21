@@ -87,8 +87,14 @@ MARVEL_CHAMPIONS_HEROES = ["--- Select a Hero ---"] + sorted(MARVEL_CHAMPIONS_HE
 # Define aspects
 MARVEL_CHAMPIONS_ASPECTS = ["--- Select an Aspect ---", "Aggression", "Justice", "Leadership", "Protection", "Basic", "Pool"]
 
-# Define difficulty options
-MARVEL_CHAMPIONS_DIFFICULTY = ["Standard", "Standard II", "Standard III", "Expert", "Expert II"]
+# Define difficulty options - UPDATED
+MARVEL_CHAMPIONS_DIFFICULTY = [
+    "Standard", "Standard II", "Standard III",
+    "Standard/Expert", "Standard/Expert II",
+    "Standard II/Expert", "Standard II/Expert II",
+    "Standard III/Expert", "Standard III/Expert II",
+    "Heroic"
+]
 
 
 # --- Constants for Data Persistence ---
