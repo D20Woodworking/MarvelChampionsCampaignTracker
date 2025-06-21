@@ -207,14 +207,20 @@ def main():
             help="Download your current campaign data to your computer. You can upload this file later to continue your progress."
         )
 
-        # Upload Data Button
-        uploaded_file = st.file_uploader(
-            "⬆️ Load Campaign Progress", # Added icon
-            type=["json"],
-            help=f"Upload a previously saved campaign data file (e.g., '{DEFAULT_DATA_FILE_NAME}')."
-        )
-        if uploaded_file is not None:
-            load_campaign_data(uploaded_file)
+        # Upload Data Form
+        with st.form("load_data_form", clear_on_submit=True): # New form for upload
+            uploaded_file = st.file_uploader(
+                "⬆️ Load Campaign Progress", # Added icon
+                type=["json"],
+                help=f"Upload a previously saved campaign data file (e.g., '{DEFAULT_DATA_FILE_NAME}')."
+            )
+            submit_load_button = st.form_submit_button("Load Data")
+
+            if submit_load_button and uploaded_file is not None:
+                load_campaign_data(uploaded_file)
+            elif submit_load_button and uploaded_file is None:
+                st.warning("Please upload a file before clicking 'Load Data'.")
+
 
         st.divider() # Visual separator
 
