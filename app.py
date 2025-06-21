@@ -95,7 +95,6 @@ def initialize_campaign_state():
     if 'scenarios_played' not in st.session_state:
         # A list of dictionaries to store scenario outcomes
         st.session_state.scenarios_played = []
-        # Each scenario outcome will now include a list of heroes played and their health if applicable
     if 'campaign_boons' not in st.session_state:
         # Stores campaign-specific boons/notes as a dictionary of lists
         # e.g., {"Campaign Name": [{"date": "YYYY-MM-DD", "note": "..."}]}
@@ -157,7 +156,7 @@ def main():
 
         st.write("Current Players:")
         if st.session_state.players:
-            for player in st.session_state.players: # Corrected variable name from st.session_session_state.players
+            for player in st.session_state.players:
                 st.write(f"- {player}")
         else:
             st.info("No players added yet.")
@@ -195,27 +194,57 @@ def main():
 
         # --- Record New Scenario Outcome Section ---
         st.subheader("Record New Scenario Outcome")
-        with st.form("scenario_form"):
-            # Input for number of heroes playing
-            num_heroes_playing = st.number_input(
-                "Number of Heroes Playing:",
-                min_value=1,
-                max_value=4, # Typically 1-4 players in Marvel Champions
-                value=1 if len(st.session_state.players) == 0 else min(len(st.session_state.players), 1),
-                step=1,
-                key="num_heroes_input"
+
+        # Input for number of heroes playing (outside the form for immediate reactivity)
+        num_heroes_playing = st.number_input(
+            "Number of Heroes Playing:",
+            min_value=1,
+            max_value=4, # Typically 1-4 players in Marvel Champions
+            value=1 if len(st.session_state.players) == 0 else min(len(st.session_state.players), 1),
+            step=1,
+            key="num_heroes_input"
+        )
+
+        selected_heroes_choices = []
+        # Dynamically create hero selection dropdowns (outside the form for immediate reactivity)
+        for i in range(num_heroes_playing):
+            hero_choice = st.selectbox(
+                f"Hero {i+1} Used:",
+                options=MARVEL_CHAMPIONS_HEROES,
+                key=f"hero_select_{i}"
             )
+            selected_heroes_choices.append(hero_choice) # Store the selected hero for validation/processing later
 
-            selected_heroes_choices = []
-            # Dynamically create hero selection dropdowns
-            for i in range(num_heroes_playing):
-                hero_choice = st.selectbox(
-                    f"Hero {i+1} Used:",
-                    options=MARVEL_CHAMPIONS_HEROES,
-                    key=f"hero_select_{i}"
-                )
-                selected_heroes_choices.append(hero_choice) # Store the selected hero for validation/processing later
+        # Outcome radio button (outside the form for immediate reactivity)
+        outcome = st.radio("Outcome:", ("Win", "Loss"), horizontal=True, key="scenario_outcome")
 
+        hero_health_inputs_for_submission = [] # This will store the final data for adding to scenarios_played
+
+        # Conditional health input for winning scenarios - now displayed immediately if outcome is 'Win'
+        if outcome == "Win":
+            st.markdown("---") # Separator for health inputs
+            st.subheader("Hero Health Remaining (for Win)")
+            for i, hero_name in enumerate(selected_heroes_choices):
+                if hero_name != "--- Select a Hero ---":
+                    health = st.number_input(
+                        f"Health Remaining for {hero_name}:",
+                        min_value=0,
+                        value=0, # Default to 0, user can change
+                        key=f"hero_health_{i}"
+                    )
+                    hero_health_inputs_for_submission.append({"hero": hero_name, "health_remaining": health})
+                else:
+                    # If a hero is not selected, add a placeholder indicating so
+                    hero_health_inputs_for_submission.append({"hero": "N/A (Not Selected)", "health_remaining": "N/A"})
+        else: # If outcome is Loss, populate with N/A
+            for hero_name in selected_heroes_choices:
+                if hero_name != "--- Select a Hero ---":
+                    hero_health_inputs_for_submission.append({"hero": hero_name, "health_remaining": "N/A (Loss)"})
+                else:
+                    hero_health_inputs_for_submission.append({"hero": "N/A (Not Selected)", "health_remaining": "N/A"})
+
+        # The form now only contains the fields that need to be submitted together
+        with st.form("scenario_form"):
             # Dynamically populate scenarios based on selected campaign
             current_campaign_scenarios = MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS.get(
                 st.session_state.selected_campaign, []
@@ -223,35 +252,9 @@ def main():
             selected_scenario = st.selectbox(
                 "Scenario Played:",
                 options=["--- Select a Scenario ---"] + current_campaign_scenarios,
-                index=0
+                index=0,
+                key="scenario_select_in_form" # Needs a unique key if moved to form
             )
-            outcome = st.radio("Outcome:", ("Win", "Loss"), horizontal=True, key="scenario_outcome")
-
-            hero_health_inputs_for_submission = [] # This will store the final data for adding to scenarios_played
-
-            # Conditional health input for winning scenarios - now displayed immediately if outcome is 'Win'
-            if outcome == "Win":
-                st.markdown("---") # Separator for health inputs
-                st.subheader("Hero Health Remaining (for Win)")
-                for i, hero_name in enumerate(selected_heroes_choices):
-                    if hero_name != "--- Select a Hero ---":
-                        health = st.number_input(
-                            f"Health Remaining for {hero_name}:",
-                            min_value=0,
-                            value=0, # Default to 0, user can change
-                            key=f"hero_health_{i}"
-                        )
-                        hero_health_inputs_for_submission.append({"hero": hero_name, "health_remaining": health})
-                    else:
-                        # If a hero is not selected, add a placeholder indicating so
-                        hero_health_inputs_for_submission.append({"hero": "N/A (Not Selected)", "health_remaining": "N/A"})
-            else: # If outcome is Loss, populate with N/A
-                for hero_name in selected_heroes_choices:
-                    if hero_name != "--- Select a Hero ---":
-                        hero_health_inputs_for_submission.append({"hero": hero_name, "health_remaining": "N/A (Loss)"})
-                    else:
-                        hero_health_inputs_for_submission.append({"hero": "N/A (Not Selected)", "health_remaining": "N/A"})
-
 
             scenario_notes = st.text_area("Scenario Notes (e.g., challenges, hero performance):")
             scenario_date_played = st.date_input("Date Played (Scenario):", datetime.date.today(), key="scenario_date")
@@ -259,7 +262,7 @@ def main():
             submit_scenario_button = st.form_submit_button("Record Scenario Outcome")
 
             if submit_scenario_button:
-                # Validate selected scenario and heroes
+                # Validate selected scenario and heroes (using selected_heroes_choices from outside the form)
                 if selected_scenario == "--- Select a Scenario ---":
                     st.error("Please select a scenario to record its outcome.")
                 elif any(h == "--- Select a Hero ---" for h in selected_heroes_choices):
@@ -313,7 +316,7 @@ def main():
         st.subheader("Campaign Boons & Notes")
         with st.form("campaign_notes_form"):
             new_campaign_note = st.text_area("Add Campaign Note/Boon (e.g., 'Permanent +1 HP for Captain America', 'Obligation: Betrayal added'):")
-            note_date = st.date_input("Date (Note):", datetime.date.today(), key="note_date")
+            note_date = st.date_input("Date (Note):", datetime.date.today(), key="note_date_form") # Unique key
             submit_note_button = st.form_submit_button("Add Campaign Note")
 
             if submit_note_button:
