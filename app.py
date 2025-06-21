@@ -77,7 +77,7 @@ MARVEL_CHAMPIONS_HEROES_RAW = [
     "Ironheart", "Jean Grey", "Jubilee", "Kitty Pryde", "Magik", "Magneto",
     "Maria Hill", "Miles Morales", "Mister Sinister", "Ms. Marvel", "Nebula",
     "Nick Fury", "Nightcrawler", "Nova", "Phoenix", "Psylocke", "Quicksilver",
-    "Rocket Raccoon", "Rogue", "Ronin", "Scarlet Witch", "Shadowcat", "She-Hulk",
+    "Rocket Racoon", "Rogue", "Ronin", "Scarlet Witch", "Shadowcat", "She-Hulk",
     "Silk", "Silver Surfer", "SP//dr", "Spider-Ham", "Spider-Man (Peter Parker)",
     "Spider-Woman", "Spectrum", "Star-Lord", "Storm", "Thor", "Valkyrie",
     "Venom (Flash Thompson)", "Vision", "War Machine", "Wasp", "Winter Soldier", "Wolverine", "X-23"
@@ -117,6 +117,9 @@ def add_scenario_outcome(campaign_name, scenario_name, heroes_played_data, outco
     })
     hero_names = ", ".join([h["hero"] for h in heroes_played_data])
     st.success(f"'{scenario_name}' played with '{hero_names}' recorded as {outcome} in {campaign_name}!")
+    # Rerun the app to clear the form and reflect the new entry immediately
+    st.experimental_rerun()
+
 
 def add_campaign_note(campaign_name, note, date):
     """Adds a campaign-specific note or boon."""
@@ -127,6 +130,8 @@ def add_campaign_note(campaign_name, note, date):
         "note": note
     })
     st.success(f"Note added to {campaign_name} campaign log!")
+    # Rerun the app to clear the form and reflect the new entry immediately
+    st.experimental_rerun()
 
 
 # --- Main Streamlit Application ---
