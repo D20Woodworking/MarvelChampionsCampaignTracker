@@ -67,19 +67,20 @@ MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS = {
 }
 
 # Define a list of Marvel Champions heroes.
-# The list is sorted alphabetically after removing the initial placeholder.
+# This list has been updated and alphabetized based on available online resources.
 MARVEL_CHAMPIONS_HEROES_RAW = [
-    "Captain America", "Iron Man", "Spider-Man (Peter Parker)", "Black Panther",
-    "Captain Marvel", "She-Hulk", "Thor", "Doctor Strange", "Ant-Man", "Wasp",
-    "Quicksilver", "Scarlet Witch", "Star-Lord", "Gamora", "Drax", "Groot",
-    "Rocket Racoon", "Venom (Flash Thompson)", "Spectrum", "Adam Warlock",
-    "Vision", "Sp-Dr", "Cyclops", "Phoenix", "Wolverine", "Storm", "Colossus",
-    "Kitty Pryde", "Nightcrawler", "Domino", "Cable", "Deadpool", "Angel",
-    "Psylocke", "Gambit", "Rogue", "X-23", "Nova", "Ironheart", "War Machine",
-    "Valkyrie", "Dazzler", "Shadowcat", "Mister Sinister", "Jean Grey", "Iceman",
-    "Bishop", "Hawkeye", "Ms. Marvel", "Hulk", "Black Widow", "Ronin",
-    "Goliath", "Spider-Ham", "Doctor Voodoo", "Cloak & Dagger", "Spider-Man (Miles Morales)",
-    "Ghost-Spider", "Silver Surfer"
+    "Adam Warlock", "Angel", "Ant-Man", "Bishop", "Black Panther",
+    "Black Widow", "Cable", "Captain America", "Captain Marvel", "Cloak & Dagger",
+    "Colossus", "Cyclops", "Dazzler", "Deadpool", "Doctor Strange",
+    "Doctor Voodoo", "Domino", "Drax", "Falcon", "Gambit", "Gamora",
+    "Ghost-Spider", "Goliath", "Groot", "Hawkeye", "Hulk", "Iceman", "Iron Man",
+    "Ironheart", "Jean Grey", "Jubilee", "Kitty Pryde", "Magik", "Magneto",
+    "Maria Hill", "Miles Morales", "Mister Sinister", "Ms. Marvel", "Nebula",
+    "Nick Fury", "Nightcrawler", "Nova", "Phoenix", "Psylocke", "Quicksilver",
+    "Rocket Raccoon", "Rogue", "Ronin", "Scarlet Witch", "Shadowcat", "She-Hulk",
+    "Silk", "Silver Surfer", "SP//dr", "Spider-Ham", "Spider-Man (Peter Parker)",
+    "Spider-Woman", "Spectrum", "Star-Lord", "Storm", "Thor", "Valkyrie",
+    "Venom (Flash Thompson)", "Vision", "War Machine", "Wasp", "Winter Soldier", "Wolverine", "X-23"
 ]
 MARVEL_CHAMPIONS_HEROES = ["--- Select a Hero ---"] + sorted(MARVEL_CHAMPIONS_HEROES_RAW)
 
