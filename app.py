@@ -94,6 +94,7 @@ def initialize_campaign_state():
         st.session_state.players = []
     if 'scenarios_played' not in st.session_state:
         # A list of dictionaries to store scenario outcomes
+        # Each scenario outcome will now include a list of heroes played and their health if applicable
         st.session_state.scenarios_played = []
     if 'campaign_boons' not in st.session_state:
         # Stores campaign-specific boons/notes as a dictionary of lists
@@ -101,17 +102,21 @@ def initialize_campaign_state():
         st.session_state.campaign_boons = {}
 
 
-def add_scenario_outcome(campaign_name, scenario_name, hero_used, outcome, notes, date_played):
-    """Adds a new scenario outcome to the campaign log."""
+def add_scenario_outcome(campaign_name, scenario_name, heroes_played_data, outcome, notes, date_played):
+    """Adds a new scenario outcome to the campaign log.
+    heroes_played_data is a list of dictionaries, e.g.,
+    [{"hero": "Captain America", "health_remaining": 5}, {"hero": "Iron Man", "health_remaining": 10}]
+    """
     st.session_state.scenarios_played.append({
         "campaign": campaign_name,
         "scenario": scenario_name,
-        "hero_used": hero_used,
+        "heroes_played": heroes_played_data, # Now a list of hero dicts
         "outcome": outcome,
         "notes": notes,
         "date": date_played.strftime("%Y-%m-%d") # Format date for display
     })
-    st.success(f"'{scenario_name}' played with '{hero_used}' recorded as {outcome} in {campaign_name}!")
+    hero_names = ", ".join([h["hero"] for h in heroes_played_data])
+    st.success(f"'{scenario_name}' played with '{hero_names}' recorded as {outcome} in {campaign_name}!")
 
 def add_campaign_note(campaign_name, note, date):
     """Adds a campaign-specific note or boon."""
@@ -188,11 +193,30 @@ def main():
         # --- Record New Scenario Outcome Section ---
         st.subheader("Record New Scenario Outcome")
         with st.form("scenario_form"):
-            selected_hero = st.selectbox(
-                "Hero Used:",
-                options=MARVEL_CHAMPIONS_HEROES,
-                index=0
+            # Input for number of heroes playing
+            num_heroes_playing = st.number_input(
+                "Number of Heroes Playing:",
+                min_value=1,
+                max_value=4, # Typically 1-4 players in Marvel Champions
+                value=1 if len(st.session_state.players) == 0 else min(len(st.session_state.players), 1),
+                step=1,
+                key="num_heroes_input"
             )
+
+            selected_heroes = []
+            hero_health_inputs = []
+
+            # Dynamically create hero selection dropdowns
+            for i in range(num_heroes_playing):
+                hero_choice = st.selectbox(
+                    f"Hero {i+1} Used:",
+                    options=MARVEL_CHAMPIONS_HEROES,
+                    key=f"hero_select_{i}"
+                )
+                selected_heroes.append(hero_choice)
+                if hero_choice == "--- Select a Hero ---":
+                    st.error(f"Please select Hero {i+1}.")
+                    break # Stop if a hero is not selected
 
             # Dynamically populate scenarios based on selected campaign
             current_campaign_scenarios = MARVEL_CHAMPIONS_CAMPAIGNS_AND_SCENARIOS.get(
@@ -203,7 +227,29 @@ def main():
                 options=["--- Select a Scenario ---"] + current_campaign_scenarios,
                 index=0
             )
-            outcome = st.radio("Outcome:", ("Win", "Loss"), horizontal=True)
+            outcome = st.radio("Outcome:", ("Win", "Loss"), horizontal=True, key="scenario_outcome")
+
+            # Conditional health input for winning scenarios
+            if outcome == "Win":
+                for i, hero_name in enumerate(selected_heroes):
+                    if hero_name != "--- Select a Hero ---":
+                        health = st.number_input(
+                            f"Health Remaining for {hero_name}:",
+                            min_value=0,
+                            value=0, # Default to 0, user can change
+                            key=f"hero_health_{i}"
+                        )
+                        hero_health_inputs.append({"hero": hero_name, "health_remaining": health})
+                    else:
+                        hero_health_inputs.append({"hero": "N/A", "health_remaining": "N/A"}) # Handle unselected hero
+            else: # If outcome is Loss
+                for hero_name in selected_heroes:
+                    if hero_name != "--- Select a Hero ---":
+                        hero_health_inputs.append({"hero": hero_name, "health_remaining": "N/A (Loss)"})
+                    else:
+                         hero_health_inputs.append({"hero": "N/A", "health_remaining": "N/A"})
+
+
             scenario_notes = st.text_area("Scenario Notes (e.g., challenges, hero performance):")
             scenario_date_played = st.date_input("Date Played (Scenario):", datetime.date.today(), key="scenario_date")
 
@@ -212,13 +258,13 @@ def main():
             if submit_scenario_button:
                 if selected_scenario == "--- Select a Scenario ---":
                     st.error("Please select a scenario to record its outcome.")
-                elif selected_hero == "--- Select a Hero ---":
-                    st.error("Please select the hero used.")
+                elif any(h == "--- Select a Hero ---" for h in selected_heroes):
+                    st.error("Please select all heroes used.")
                 else:
                     add_scenario_outcome(
                         st.session_state.selected_campaign,
                         selected_scenario,
-                        selected_hero,
+                        hero_health_inputs, # Pass the list of hero data
                         outcome,
                         scenario_notes,
                         scenario_date_played
@@ -233,7 +279,26 @@ def main():
         ]
 
         if current_campaign_scenarios_played:
-            df_scenarios = pd.DataFrame(current_campaign_scenarios_played)
+            # Flatten the 'heroes_played' list for better display in DataFrame
+            # Create a list of dictionaries where each dict represents a row for the DataFrame
+            display_data = []
+            for record in current_campaign_scenarios_played:
+                heroes_str = []
+                for hero_info in record["heroes_played"]:
+                    if hero_info["health_remaining"] != "N/A" and hero_info["health_remaining"] != "N/A (Loss)":
+                        heroes_str.append(f"{hero_info['hero']} ({hero_info['health_remaining']} HP)")
+                    else:
+                        heroes_str.append(hero_info['hero'])
+                display_data.append({
+                    "campaign": record["campaign"],
+                    "scenario": record["scenario"],
+                    "heroes_used": ", ".join(heroes_str), # Display combined hero and health info
+                    "outcome": record["outcome"],
+                    "notes": record["notes"],
+                    "date": record["date"]
+                })
+
+            df_scenarios = pd.DataFrame(display_data)
             df_scenarios['date'] = pd.to_datetime(df_scenarios['date'])
             df_scenarios = df_scenarios.sort_values(by='date', ascending=False).reset_index(drop=True)
             st.dataframe(df_scenarios)
